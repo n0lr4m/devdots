@@ -22,7 +22,7 @@ A lightweight .NET Core CLI utility for Windows x64 designed to generate dotfile
 - Windows x64
 
 ### 2. Building from Source
-Clone the repository and publish a standalone single-file Windows x64 binary:
+Clone the repository and publish a standalone single-file Windows x64 binary named `devdots.exe`:
 
 ```bash
 git clone <repository-url>
@@ -31,7 +31,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ```
 
 The executable will be generated at:
-`bin/Release/net10.0/win-x64/publish/OssIndexDotfiles.exe`
+`bin/Release/net10.0/win-x64/publish/devdots.exe`
 
 ### 3. Running the Utility
 Run the compiled executable or run via dotnet:

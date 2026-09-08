@@ -54,12 +54,12 @@ To work on this project, ensure you have the following installed on your machine
    ```
 
 3. **Publish as a Standalone Windows X64 Binary:**
-   To build the self-contained single-file executable for Windows x64:
+   To build the self-contained single-file executable named `devdots.exe` for Windows x64:
    ```bash
    dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
    ```
    The compiled binary will be available at:
-   `bin/Release/net10.0/win-x64/publish/OssIndexDotfiles.exe`
+   `bin/Release/net10.0/win-x64/publish/devdots.exe`
 
 ---
 
