@@ -8,7 +8,7 @@ class Program
 {
     private static readonly string ConfigDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".ossindex"
+        ".sonatype"
     );
     private static readonly string ConfigFile = Path.Combine(ConfigDir, "config.json");
 
@@ -20,7 +20,7 @@ class Program
 
     static void Main(string[] args)
     {
-        Console.WriteLine("=== OSS Index Dotfiles Generator ===");
+        Console.WriteLine("=== Sonatype Guide & OSS Index Dotfiles Generator ===");
 
         Directory.CreateDirectory(ConfigDir);
 
@@ -45,15 +45,15 @@ class Program
         if (string.IsNullOrWhiteSpace(config.Username) || string.IsNullOrWhiteSpace(config.Token))
         {
             Console.WriteLine("\nIt looks like this is your first time running this utility or credentials are missing.");
-            Console.WriteLine("To use OSS Index, you need an account and an API token.");
-            Console.WriteLine("Opening OSS Index registration / token page in your default browser...");
+            Console.WriteLine("Sonatype OSS Index is migrating to Sonatype Guide (https://guide.sonatype.com).");
+            Console.WriteLine("Opening Sonatype Guide / OSS Index registration & token page in your default browser...");
 
-            OpenUrl("https://ossindex.sonatype.org/");
+            OpenUrl("https://guide.sonatype.com/");
 
-            Console.WriteLine("\nPlease enter your OSS Index Username (Email):");
+            Console.WriteLine("\nPlease enter your Sonatype Guide Username / Email:");
             config.Username = Console.ReadLine()?.Trim();
 
-            Console.WriteLine("Please enter your OSS Index API Token:");
+            Console.WriteLine("Please enter your Sonatype Guide Personal Access Token (PAT) / OSS Index API Token:");
             config.Token = Console.ReadLine()?.Trim();
 
             if (string.IsNullOrWhiteSpace(config.Username) || string.IsNullOrWhiteSpace(config.Token))
@@ -67,7 +67,7 @@ class Program
         }
 
         GenerateDotfiles(config.Username, config.Token);
-        Console.WriteLine("\nAll dotfiles generated successfully for Windows!");
+        Console.WriteLine("\nAll dotfiles and environment configurations updated successfully for Sonatype Guide & OSS Index!");
     }
 
     static void OpenUrl(string url)
@@ -100,7 +100,7 @@ class Program
 
         // 1. NPM (.npmrc)
         var npmrcPath = Path.Combine(userProfile, ".npmrc");
-        var npmrcContent = $"# OSS Index Credentials for npm audit / tools\n" +
+        var npmrcContent = $"# Sonatype Guide / OSS Index Credentials for npm tools\n" +
                            $"registry=https://registry.npmjs.org/\n" +
                            $"//registry.npmjs.org/:_authToken={token}\n";
         File.WriteAllText(npmrcPath, npmrcContent);
@@ -131,17 +131,21 @@ class Program
         Console.WriteLine($"[Created] Pip config: {pipIniPath}");
 
         // 4. Environment Variables helper script (set-env.ps1)
+        // Supporting both legacy OSSINDEX variables and new Sonatype Guide variables / endpoints
         var envScriptPath = Path.Combine(ConfigDir, "set-env.ps1");
         var envScriptContent = $"[System.Environment]::SetEnvironmentVariable('OSSINDEX_USERNAME', '{username}', [System.EnvironmentVariableTarget]::User)\n" +
                                $"[System.Environment]::SetEnvironmentVariable('OSSINDEX_TOKEN', '{token}', [System.EnvironmentVariableTarget]::User)\n" +
-                               $"Write-Host 'OSS Index environment variables set successfully for User scope.'\n";
+                               $"[System.Environment]::SetEnvironmentVariable('SONATYPE_GUIDE_API_URL', 'https://api.guide.sonatype.com', [System.EnvironmentVariableTarget]::User)\n" +
+                               $"[System.Environment]::SetEnvironmentVariable('SONATYPE_GUIDE_USERNAME', '{username}', [System.EnvironmentVariableTarget]::User)\n" +
+                               $"[System.Environment]::SetEnvironmentVariable('SONATYPE_GUIDE_TOKEN', '{token}', [System.EnvironmentVariableTarget]::User)\n" +
+                               $"Write-Host 'Sonatype Guide and OSS Index environment variables set successfully for User scope.'\n";
         File.WriteAllText(envScriptPath, envScriptContent);
         Console.WriteLine($"[Created] PowerShell Environment Setup Script: {envScriptPath}");
 
         try
         {
             Process.Start(new ProcessStartInfo("powershell", $"-ExecutionPolicy Bypass -File \"{envScriptPath}\"") { CreateNoWindow = true })?.WaitForExit();
-            Console.WriteLine("[Success] User environment variables OSSINDEX_USERNAME and OSSINDEX_TOKEN have been set!");
+            Console.WriteLine("[Success] User environment variables for Sonatype Guide & OSS Index have been set!");
         }
         catch (Exception ex)
         {
@@ -149,4 +153,5 @@ class Program
         }
     }
 }
+
 
