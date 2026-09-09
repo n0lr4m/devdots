@@ -1,12 +1,13 @@
-# Contributing to OSS Index Dotfiles Generator
+# Contributing to Chainguard Libraries Dotfiles Generator
 
-Thank you for your interest in contributing to the OSS Index Dotfiles Generator utility! This guide will help you get started with setting up your development environment, making changes, testing, and submitting your contributions.
+Thank you for your interest in contributing to the Chainguard Libraries Dotfiles Generator utility! This guide will help you get started with setting up your development environment, making changes, testing, and submitting your contributions.
 
 ## Prerequisites
 
 To work on this project, ensure you have the following installed on your machine:
 - [.NET SDK 10.0](https://dotnet.microsoft.com/download) (or compatible .NET 10 SDK)
 - Git
+- PowerShell (for `chainctl` installation and environment configuration on Windows)
 
 ---
 
@@ -32,11 +33,13 @@ To work on this project, ensure you have the following installed on your machine
 
 ## Project Structure
 
-- `OssIndexDotfiles.csproj`: The project file targeting .NET 10 (`net10.0`) configured as a console executable.
+- `OssIndexDotfiles.csproj`: The project file targeting .NET 10 (`net10.0`) configured as a console executable named `devdots`.
 - `Program.cs`: The core entry point containing:
-  - First-run detection & browser launch logic for Sonatype OSS Index.
-  - Credential caching under `%USERPROFILE%\.ossindex\config.json`.
-  - Dotfile generators for npm, NuGet, pip/uv, and environment variables.
+  - First-run detection & Chainguard Console browser launch (`https://console.chainguard.dev/`).
+  - Automatic download and PATH configuration of `chainctl` under `%USERPROFILE%\.chainguard\bin`.
+  - Authentication automation via `chainctl auth login`.
+  - Pull token generation across Chainguard ecosystems (**Java**, **JavaScript**, and **Python**).
+  - Dotfile and configuration writers for `.npmrc`, `pip.ini`, and Maven `settings.xml`.
 
 ---
 
@@ -46,7 +49,7 @@ To work on this project, ensure you have the following installed on your machine
    ```bash
    dotnet run
    ```
-   *Note: On first run, it will open your browser to Sonatype OSS Index and prompt for credentials.*
+   *Note: On first run, it will open your browser to Chainguard Console and prompt for your parent organization and email.*
 
 2. **Build and test the project:**
    ```bash
