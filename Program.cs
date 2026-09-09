@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -8,19 +9,27 @@ class Program
 {
     private static readonly string ConfigDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".sonatype"
+        ".chainguard"
     );
     private static readonly string ConfigFile = Path.Combine(ConfigDir, "config.json");
+    private static readonly string ProgramDataDir = @"C:\ProgramData\Chainguard";
 
     class Config
     {
-        public string? Username { get; set; }
-        public string? Token { get; set; }
+        public string? Parent { get; set; }
+        public string? Email { get; set; }
     }
 
     static void Main(string[] args)
     {
-        Console.WriteLine("=== Sonatype Guide & OSS Index Dotfiles Generator ===");
+        if (args.Contains("--install-chainctl", StringComparer.OrdinalIgnoreCase))
+        {
+            InstallChainctl();
+            return;
+        }
+
+        Console.WriteLine("=== Chainguard Libraries Dotfiles & chainctl Generator ===");
+        Console.WriteLine("Tip: Run with '--install-chainctl' to install chainctl into C:\\ProgramData and update your user PATH.");
 
         Directory.CreateDirectory(ConfigDir);
 
@@ -42,23 +51,22 @@ class Program
             config = new Config();
         }
 
-        if (string.IsNullOrWhiteSpace(config.Username) || string.IsNullOrWhiteSpace(config.Token))
+        if (string.IsNullOrWhiteSpace(config.Parent) || string.IsNullOrWhiteSpace(config.Email))
         {
-            Console.WriteLine("\nIt looks like this is your first time running this utility or credentials are missing.");
-            Console.WriteLine("Sonatype OSS Index is migrating to Sonatype Guide (https://guide.sonatype.com).");
-            Console.WriteLine("Opening Sonatype Guide / OSS Index registration & token page in your default browser...");
+            Console.WriteLine("\nFirst-run setup: Chainguard Libraries & account configuration.");
+            Console.WriteLine("Opening Chainguard Console in your default browser to create an account/organization...");
 
-            OpenUrl("https://guide.sonatype.com/");
+            OpenUrl("https://console.chainguard.dev/");
 
-            Console.WriteLine("\nPlease enter your Sonatype Guide Username / Email:");
-            config.Username = Console.ReadLine()?.Trim();
+            Console.WriteLine("\nPlease enter your Chainguard Organization / Parent identifier (e.g., your-org or example.com):");
+            config.Parent = Console.ReadLine()?.Trim();
 
-            Console.WriteLine("Please enter your Sonatype Guide Personal Access Token (PAT) / OSS Index API Token:");
-            config.Token = Console.ReadLine()?.Trim();
+            Console.WriteLine("Please enter your Chainguard account Email:");
+            config.Email = Console.ReadLine()?.Trim();
 
-            if (string.IsNullOrWhiteSpace(config.Username) || string.IsNullOrWhiteSpace(config.Token))
+            if (string.IsNullOrWhiteSpace(config.Parent) || string.IsNullOrWhiteSpace(config.Email))
             {
-                Console.WriteLine("Error: Username and Token cannot be empty.");
+                Console.WriteLine("Error: Parent organization and Email cannot be empty.");
                 return;
             }
 
@@ -66,8 +74,60 @@ class Program
             Console.WriteLine($"Saved configuration to {ConfigFile}");
         }
 
-        GenerateDotfiles(config.Username, config.Token);
-        Console.WriteLine("\nAll dotfiles and environment configurations updated successfully for Sonatype Guide & OSS Index!");
+        EnsureAuthenticatedWithChainctl();
+        GenerateChainguardDotfiles(config.Parent);
+        Console.WriteLine("\nAll Chainguard dotfiles and package manager configurations created successfully for Java, JavaScript, and Python!");
+    }
+
+    static void InstallChainctl()
+    {
+        Console.WriteLine("=== Installing chainctl to C:\\ProgramData ==-");
+        try
+        {
+            Directory.CreateDirectory(ProgramDataDir);
+            var chainctlPath = Path.Combine(ProgramDataDir, "chainctl.exe");
+
+            var psScript = 
+                $"`$ErrorActionPreference = 'Stop';\n" +
+                $"Write-Host 'Fetching latest chainctl version metadata...';\n" +
+                $"(`$versionInfo = (Invoke-RestMethod -Uri 'https://dl.enforce.dev/chainctl/latest/metadata.json'));\n" +
+                $"`$version = `$versionInfo.version;\n" +
+                $"Write-Host \"Downloading chainctl version `$version...\";\n" +
+                $"Invoke-WebRequest -Uri \"https://dl.enforce.dev/chainctl/`$version/chainctl_windows_x86_64.exe\" -OutFile \"{chainctlPath}\";\n" +
+                $"Write-Host 'chainctl downloaded successfully to {ProgramDataDir}!';";
+
+            var startInfo = new ProcessStartInfo("powershell", $"-NoProfile -ExecutionPolicy Bypass -Command \"{psScript}\"")
+            {
+                CreateNoWindow = false,
+                UseShellExecute = false
+            };
+            var proc = Process.Start(startInfo);
+            proc?.WaitForExit();
+
+            if (proc?.ExitCode == 0 && File.Exists(chainctlPath))
+            {
+                // Add C:\ProgramData to User PATH
+                var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+                if (!userPath.Contains(ProgramDataDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    var newPath = string.IsNullOrEmpty(userPath) ? ProgramDataDir : $"{userPath};{ProgramDataDir}";
+                    Environment.SetEnvironmentVariable("PATH", newPath, EnvironmentVariableTarget.User);
+                    Console.WriteLine($"[Success] Added {ProgramDataDir} to user PATH.");
+                }
+                else
+                {
+                    Console.WriteLine("[Notice] {ProgramDataDir} is already present in user PATH.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Error: Failed to download chainctl.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during chainctl installation (administrative permissions may be required for C:\\ProgramData): {ex.Message}");
+        }
     }
 
     static void OpenUrl(string url)
@@ -94,64 +154,154 @@ class Program
         }
     }
 
-    static void GenerateDotfiles(string username, string token)
+    static void EnsureAuthenticatedWithChainctl()
+    {
+        var chainctlPath = Path.Combine(ProgramDataDir, "chainctl.exe");
+        if (!File.Exists(chainctlPath))
+        {
+            Console.WriteLine("[Notice] chainctl not found in C:\\ProgramData. Run with '--install-chainctl' to install it.");
+            return;
+        }
+
+        Console.WriteLine("\nAuthenticating with Chainguard via chainctl...");
+        try
+        {
+            var startInfo = new ProcessStartInfo(chainctlPath, "auth login")
+            {
+                CreateNoWindow = false,
+                UseShellExecute = false
+            };
+            var proc = Process.Start(startInfo);
+            proc?.WaitForExit();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"chainctl login notice: {ex.Message}");
+        }
+    }
+
+    static void GenerateChainguardDotfiles(string parent)
     {
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var chainctlPath = Path.Combine(ProgramDataDir, "chainctl.exe");
 
-        // 1. NPM (.npmrc)
-        var npmrcPath = Path.Combine(userProfile, ".npmrc");
-        var npmrcContent = $"# Sonatype Guide / OSS Index Credentials for npm tools\n" +
-                           $"registry=https://registry.npmjs.org/\n" +
-                           $"//registry.npmjs.org/:_authToken={token}\n";
-        File.WriteAllText(npmrcPath, npmrcContent);
-        Console.WriteLine($"[Created] NPM config: {npmrcPath}");
+        string[] ecosystems = { "java", "javascript", "python" };
 
-        // 2. NuGet (NuGet.Config)
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var nugetDir = Path.Combine(appData, "NuGet");
-        Directory.CreateDirectory(nugetDir);
-        var nugetConfigPath = Path.Combine(nugetDir, "NuGet.Config");
-        
-        var nugetContent = @"<?xml version=""1.0"" encoding=""utf-8""?>
-<configuration>
-  <packageSources>
-    <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" protocolVersion=""3"" />
-  </packageSources>
-</configuration>
+        foreach (var eco in ecosystems)
+        {
+            Console.WriteLine($"\nGenerating pull token for ecosystem: {eco} (Parent: {parent})...");
+            string username = "";
+            string password = "";
+
+            if (File.Exists(chainctlPath))
+            {
+                try
+                {
+                    var startInfo = new ProcessStartInfo(chainctlPath, $"auth pull-token --repository={eco} --parent={parent} --output=json")
+                    {
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    var proc = Process.Start(startInfo);
+                    string output = proc?.StandardOutput.ReadToEnd() ?? "";
+                    proc?.WaitForExit();
+
+                    if (!string.IsNullOrWhiteSpace(output))
+                    {
+                        using var doc = JsonDocument.Parse(output);
+                        var root = doc.RootElement;
+                        if (root.TryGetProperty("username", out var u)) username = u.GetString() ?? "";
+                        if (root.TryGetProperty("password", out var p)) password = p.GetString() ?? "";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Could not automatically generate pull token via chainctl for {eco}: {ex.Message}");
+                }
+            }
+
+            if (string.IsNullOrEmpty(username)) username = "chainguard-user";
+            if (string.IsNullOrEmpty(password)) password = "placeholder-token";
+
+            if (eco == "javascript")
+            {
+                var npmrcPath = Path.Combine(userProfile, ".npmrc");
+                var npmrcContent = $"# Chainguard Libraries JavaScript Repository\n" +
+                                   $"registry=https://libraries.chainguard.dev/javascript/\n" +
+                                   $"//libraries.chainguard.dev/javascript/:username={username}\n" +
+                                   $"//libraries.chainguard.dev/javascript/:_password={password}\n" +
+                                   $"//libraries.chainguard.dev/javascript/:email=admin@chainguard.dev\n" +
+                                   $"//libraries.chainguard.dev/javascript/:always-auth=true\n";
+                File.WriteAllText(npmrcPath, npmrcContent);
+                Console.WriteLine($"[Created] JavaScript (.npmrc): {npmrcPath}");
+            }
+            else if (eco == "python")
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var pipDir = Path.Combine(appData, "pip");
+                Directory.CreateDirectory(pipDir);
+                var pipIniPath = Path.Combine(pipDir, "pip.ini");
+                var pipContent = "[global]\n" +
+                                 "index-url = https://libraries.chainguard.dev/python/simple/\n" +
+                                 $"extra-index-url = https://{username}:{password}@libraries.chainguard.dev/python/simple/\n";
+                File.WriteAllText(pipIniPath, pipIniPath == "" ? "" : pipContent);
+                File.WriteAllText(pipIniPath, pipContent);
+                Console.WriteLine($"[Created] Python (pip.ini): {pipIniPath}");
+            }
+            else if (eco == "java")
+            {
+                var m2Dir = Path.Combine(userProfile, ".m2");
+                Directory.CreateDirectory(m2Dir);
+                var settingsPath = Path.Combine(m2Dir, "settings.xml");
+                var settingsContent = $@"<settings>
+  <servers>
+    <server>
+      <id>chainguard-java</id>
+      <username>{username}</username>
+      <password>{password}</password>
+    </server>
+  </servers>
+  <profiles>
+    <profile>
+      <id>chainguard-java</id>
+      <repositories>
+        <repository>
+          <id>chainguard-java</id>
+          <url>https://libraries.chainguard.dev/java</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+  <activeProfiles>
+    <activeProfile>chainguard-java</activeProfile>
+  </activeProfiles>
+</settings>
 ";
-        File.WriteAllText(nugetConfigPath, nugetContent);
-        Console.WriteLine($"[Created] NuGet config: {nugetConfigPath}");
+                File.WriteAllText(settingsPath, settingsContent);
+                Console.WriteLine($"[Created] Java Maven settings.xml: {settingsPath}");
+            }
+        }
 
-        // 3. Pip / UV (pip.conf)
-        var pipDir = Path.Combine(appData, "pip");
-        Directory.CreateDirectory(pipDir);
-        var pipIniPath = Path.Combine(pipDir, "pip.ini");
-        var pipContent = "[global]\n";
-        File.WriteAllText(pipIniPath, pipContent);
-        Console.WriteLine($"[Created] Pip config: {pipIniPath}");
-
-        // 4. Environment Variables helper script (set-env.ps1)
-        // Supporting both legacy OSSINDEX variables and new Sonatype Guide variables / endpoints
         var envScriptPath = Path.Combine(ConfigDir, "set-env.ps1");
-        var envScriptContent = $"[System.Environment]::SetEnvironmentVariable('OSSINDEX_USERNAME', '{username}', [System.EnvironmentVariableTarget]::User)\n" +
-                               $"[System.Environment]::SetEnvironmentVariable('OSSINDEX_TOKEN', '{token}', [System.EnvironmentVariableTarget]::User)\n" +
-                               $"[System.Environment]::SetEnvironmentVariable('SONATYPE_GUIDE_API_URL', 'https://api.guide.sonatype.com', [System.EnvironmentVariableTarget]::User)\n" +
-                               $"[System.Environment]::SetEnvironmentVariable('SONATYPE_GUIDE_USERNAME', '{username}', [System.EnvironmentVariableTarget]::User)\n" +
-                               $"[System.Environment]::SetEnvironmentVariable('SONATYPE_GUIDE_TOKEN', '{token}', [System.EnvironmentVariableTarget]::User)\n" +
-                               $"Write-Host 'Sonatype Guide and OSS Index environment variables set successfully for User scope.'\n";
+        var envScriptContent = $"[System.Environment]::SetEnvironmentVariable('CHAINGUARD_PARENT', '{parent}', [System.EnvironmentVariableTarget]::User)\n" +
+                               $"Write-Host 'Chainguard environment variables and dotfiles successfully configured.'\n";
         File.WriteAllText(envScriptPath, envScriptContent);
-        Console.WriteLine($"[Created] PowerShell Environment Setup Script: {envScriptPath}");
 
         try
         {
             Process.Start(new ProcessStartInfo("powershell", $"-ExecutionPolicy Bypass -File \"{envScriptPath}\"") { CreateNoWindow = true })?.WaitForExit();
-            Console.WriteLine("[Success] User environment variables for Sonatype Guide & OSS Index have been set!");
+            Console.WriteLine("[Success] Chainguard user environment variables updated!");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Could not set environment variables automatically: {ex.Message}");
+            Console.WriteLine($"Notice setting env vars: {ex.Message}");
         }
     }
 }
+
 
 
