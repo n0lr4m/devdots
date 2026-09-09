@@ -1,17 +1,18 @@
-# OSS Index Dotfiles Generator
+# Chainguard Libraries Dotfiles Generator
 
-A lightweight .NET Core CLI utility for Windows x64 designed to generate dotfiles and configure environment variables for popular package managers (`npm`, `NuGet`, `pip`, and `uv`) to integrate with [Sonatype OSS Index](https://ossindex.sonatype.org/).
+A lightweight .NET Core CLI utility for Windows x64 designed to integrate with **Chainguard Libraries** across **Java, JavaScript, and Python** ecosystems. It automates `chainctl` installation, authentication, pull token generation, and dotfile creation.
 
 ---
 
 ## Features
 
-- **First-Run Detection**: Automatically opens the Sonatype OSS Index registration/token page in your default browser on first launch and securely saves credentials locally.
-- **Config & Dotfiles Generation**:
-  - **NPM**: Creates/updates `%USERPROFILE%\.npmrc` with authentication tokens.
-  - **NuGet**: Ensures `%APPDATA%\NuGet\NuGet.Config` is properly initialized.
-  - **Pip / UV**: Configures `%APPDATA%\pip\pip.ini`.
-  - **Environment Variables**: Automatically configures user-scoped `OSSINDEX_USERNAME` and `OSSINDEX_TOKEN` environment variables.
+- **First-Run Setup**: Automatically opens the Chainguard Console (`https://console.chainguard.dev/`) in your default browser to create an account/organization.
+- **chainctl Automation**: Automatically downloads the latest version of `chainctl` from Chainguard's release metadata, adds it to your User `PATH`, and performs `chainctl auth login`.
+- **Pull Token Generation**: Interacts with `chainctl` to generate authenticated pull tokens for **Java**, **JavaScript**, and **Python** repositories.
+- **Ecosystem Configs & Dotfiles**:
+  - **JavaScript (npm)**: Configures `%USERPROFILE%\.npmrc` with Chainguard Libraries repository auth.
+  - **Python (pip/uv)**: Configures `%APPDATA%\pip\pip.ini` with custom index URLs.
+  - **Java (Maven)**: Configures `%USERPROFILE%\.m2\settings.xml` with Chainguard server credentials and repository profiles.
 
 ---
 
@@ -41,7 +42,7 @@ dotnet run
 ```
 Or execute the published binary directly:
 ```bash
-.\bin\Release\net10.0\win-x64\publish\OssIndexDotfiles.exe
+.\bin\Release\net10.0\win-x64\publish\devdots.exe
 ```
 
 ---
